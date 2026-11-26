@@ -8,8 +8,6 @@ from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 
-LINEAR_SPEED = 0.2   # m/s
-MOVE_DURATION = 2.0  # s
 
 
 class ClickController(Node):
@@ -17,7 +15,12 @@ class ClickController(Node):
         super().__init__('click_controller')
 
         self.declare_parameter('image_topic', '/camera/image_raw')
+        self.declare_parameter('cmd_vel_topic', '/cmd_vel')
+        self.declare_parameter('linear_speed', 0.2)
+        self.declare_parameter('move_duration', 2.0)
+
         image_topic = self.get_parameter('image_topic').value
+        cmd_vel_topic = self.get_parameter('cmd_vel_topic').value
 
         self.bridge = CvBridge()
         self.frame = None
@@ -27,7 +30,7 @@ class ClickController(Node):
         self.move_end_time = None
         self.last_click = None
 
-        self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.cmd_pub = self.create_publisher(Twist, cmd_vel_topic, 10)
         self.create_subscription(
             Image, image_topic, self.image_callback, qos_profile_sensor_data)
         self.create_timer(1.0 / 30.0, self.gui_loop)
@@ -35,8 +38,8 @@ class ClickController(Node):
 
         cv2.namedWindow(self.window_name)
         cv2.setMouseCallback(self.window_name, self.on_mouse)
-        self.get_logger().info(f'Listening for images on {image_topic}')
-
+        self.get_logger().info(
+            f'Listening for images on {image_topic}, publishing to {cmd_vel_topic}')
     def image_callback(self, msg):
         self.frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
 
@@ -44,15 +47,18 @@ class ClickController(Node):
         if event != cv2.EVENT_LBUTTONDOWN or self.frame is None:
             return
 
+        speed = self.get_parameter('linear_speed').value
+        duration = self.get_parameter('move_duration').value
+
         height = self.frame.shape[0]
         if y < height / 2:
-            self.current_speed = LINEAR_SPEED
+            self.current_speed = speed
             direction = 'forward'
         else:
-            self.current_speed = -LINEAR_SPEED
+            self.current_speed = -speed
             direction = 'backward'
 
-        self.move_end_time = self.get_clock().now() + Duration(seconds=MOVE_DURATION)
+        self.move_end_time = self.get_clock().now() + Duration(seconds=duration)
         self.last_click = (x, y)
         self.get_logger().info(f'Click at ({x}, {y}) -> {direction}')
 
