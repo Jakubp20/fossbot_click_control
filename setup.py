@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'click_controller = fossbot_click_control.click_controller:main',
+            'dashboard = fossbot_click_control.dashboard:main',
         ],
     },
 )
